@@ -1,5 +1,5 @@
 import re
-from typing import List, Dict, Set
+from typing import List, Dict, Set, Optional
 from .models import (
     SubtitleFile,
     SubtitleEntry,
@@ -13,30 +13,58 @@ from .utils import format_timecode, format_frame, format_time_with_frames
 
 
 class SubtitleScanner:
-    def __init__(self, config: Config, fps: float = None):
+    def __init__(self, config: Config, fps: Optional[float] = None, use_ignore_list: bool = True):
         self.config = config
         self.fps = fps if fps is not None else config.get_fps()
+        self.use_ignore_list = use_ignore_list
+        self.ignore_list = config.ignore_list if use_ignore_list else None
 
     def scan_file(self, subtitle_file: SubtitleFile) -> SubtitleFile:
         subtitle_file.fps = self.fps
-        subtitle_file.issues = []
-        subtitle_file.issues.extend(self._check_invalid_timecodes(subtitle_file))
-        subtitle_file.issues.extend(self._check_duplicate_numbers(subtitle_file))
-        subtitle_file.issues.extend(self._check_number_gaps(subtitle_file))
-        subtitle_file.issues.extend(self._check_time_overlap(subtitle_file))
-        subtitle_file.issues.extend(self._check_empty_entries(subtitle_file))
-        subtitle_file.issues.extend(self._check_blank_lines(subtitle_file))
-        subtitle_file.issues.extend(self._check_line_length(subtitle_file))
-        subtitle_file.issues.extend(self._check_reading_speed(subtitle_file))
-        subtitle_file.issues.extend(self._check_missing_punctuation(subtitle_file))
-        subtitle_file.issues.extend(self._check_terminology(subtitle_file))
-        subtitle_file.issues.sort(key=lambda i: (i.subtitle_index or 0, i.type.value))
+        raw_issues: List[Issue] = []
+        raw_issues.extend(self._check_invalid_timecodes(subtitle_file))
+        raw_issues.extend(self._check_duplicate_numbers(subtitle_file))
+        raw_issues.extend(self._check_number_gaps(subtitle_file))
+        raw_issues.extend(self._check_time_overlap(subtitle_file))
+        raw_issues.extend(self._check_empty_entries(subtitle_file))
+        raw_issues.extend(self._check_blank_lines(subtitle_file))
+        raw_issues.extend(self._check_line_length(subtitle_file))
+        raw_issues.extend(self._check_reading_speed(subtitle_file))
+        raw_issues.extend(self._check_missing_punctuation(subtitle_file))
+        raw_issues.extend(self._check_terminology(subtitle_file))
+
+        filtered = self._filter_ignored(subtitle_file.filepath, raw_issues)
+        subtitle_file.issues = sorted(
+            filtered,
+            key=lambda i: (i.subtitle_index or 0, i.type.value),
+        )
         return subtitle_file
 
     def scan_directory(self, files: List[SubtitleFile]) -> ScanResult:
         result = ScanResult()
         for f in files:
             result.files.append(self.scan_file(f))
+        return result
+
+    def _filter_ignored(self, filepath: str, issues: List[Issue]) -> List[Issue]:
+        if not self.ignore_list or len(self.ignore_list) == 0:
+            return issues
+        result = []
+        for issue in issues:
+            key = issue.get_key(filepath)
+            start_ms = issue.details.get("start_ms") if issue.subtitle_index else None
+            text_snippet = issue.details.get("text")
+            if self.ignore_list.is_ignored(
+                filepath=filepath,
+                issue_type=issue.type.value,
+                subtitle_index=issue.subtitle_index,
+                line_number=issue.line_number,
+                start_ms=start_ms,
+                text=text_snippet,
+            ):
+                issue._ignored = True
+                continue
+            result.append(issue)
         return result
 
     def _check_invalid_timecodes(self, sf: SubtitleFile) -> List[Issue]:
@@ -73,7 +101,7 @@ class SubtitleScanner:
                         severity=IssueSeverity.WARNING,
                         message=f"重复的编号 #{entry.index}",
                         subtitle_index=entry.index,
-                        details={"first_at": seen[entry.index] + 1},
+                        details={"first_at": seen[entry.index] + 1, "start_ms": entry.start_time},
                     )
                 )
             else:
@@ -92,7 +120,11 @@ class SubtitleScanner:
                             severity=IssueSeverity.WARNING,
                             message=f"编号断裂：期望 #{expected}，实际 #{entry.index}",
                             subtitle_index=entry.index,
-                            details={"expected": expected, "actual": entry.index},
+                            details={
+                                "expected": expected,
+                                "actual": entry.index,
+                                "start_ms": entry.start_time,
+                            },
                         )
                     )
                 expected = entry.index
@@ -121,6 +153,7 @@ class SubtitleScanner:
                             "overlap_ms": overlap,
                             "overlap_frames": overlap_frames,
                             "fps": fps,
+                            "start_ms": curr.start_time,
                         },
                     )
                 )
@@ -140,6 +173,7 @@ class SubtitleScanner:
                         details={
                             "start": format_time_with_frames(entry.start_time, fps),
                             "end": format_time_with_frames(entry.end_time, fps),
+                            "start_ms": entry.start_time,
                         },
                     )
                 )
@@ -154,6 +188,7 @@ class SubtitleScanner:
                             "start": format_time_with_frames(entry.start_time, fps),
                             "end": format_time_with_frames(entry.end_time, fps),
                             "blank_count": len(entry.text_lines),
+                            "start_ms": entry.start_time,
                         },
                     )
                 )
@@ -177,6 +212,8 @@ class SubtitleScanner:
                         details={
                             "blank_line_positions": [b + 1 for b in blank_indices],
                             "total_lines": len(entry.text_lines),
+                            "start_ms": entry.start_time,
+                            "text": entry.full_text[:50],
                         },
                     )
                 )
@@ -197,7 +234,14 @@ class SubtitleScanner:
                             severity=IssueSeverity.WARNING,
                             message=f"单行过长 #{entry.index} 第{j + 1}行：{len(stripped)}字 > {max_len}字",
                             subtitle_index=entry.index,
-                            details={"length": len(stripped), "max": max_len, "line": j + 1, "text": stripped},
+                            line_number=j + 1,
+                            details={
+                                "length": len(stripped),
+                                "max": max_len,
+                                "line": j + 1,
+                                "text": stripped,
+                                "start_ms": entry.start_time,
+                            },
                         )
                     )
         return issues
@@ -227,6 +271,8 @@ class SubtitleScanner:
                             "min_needed_ms": min_needed,
                             "char_count": entry.char_count,
                             "lines": num_lines,
+                            "start_ms": entry.start_time,
+                            "text": entry.full_text[:50],
                         },
                     )
                 )
@@ -250,7 +296,12 @@ class SubtitleScanner:
                                 severity=IssueSeverity.INFO,
                                 message=f"可能缺失标点 #{entry.index} 第{j + 1}行",
                                 subtitle_index=entry.index,
-                                details={"line": j + 1, "text": stripped},
+                                line_number=j + 1,
+                                details={
+                                    "line": j + 1,
+                                    "text": stripped,
+                                    "start_ms": entry.start_time,
+                                },
                             )
                         )
         return issues
@@ -270,20 +321,34 @@ class SubtitleScanner:
         if not terms_map:
             return issues
         usage: Dict[str, Set[str]] = {canonical: set() for canonical in terms_map}
+        first_seen: Dict[str, Dict[str, Optional[int]]] = {}
         for i, entry in enumerate(sf.entries):
             text = entry.full_text
             for canonical, variants in terms_map.items():
                 for v in variants:
                     if v in text:
                         usage[canonical].add(v)
+                        if canonical not in first_seen:
+                            first_seen[canonical] = {}
+                        if v not in first_seen[canonical]:
+                            first_seen[canonical][v] = entry.start_time
         for canonical, used in usage.items():
             if len(used) > 1:
+                earliest_ms = None
+                for v in used:
+                    ts = first_seen.get(canonical, {}).get(v)
+                    if ts is not None and (earliest_ms is None or ts < earliest_ms):
+                        earliest_ms = ts
                 issues.append(
                     Issue(
                         type=IssueType.TERM_INCONSISTENCY,
                         severity=IssueSeverity.WARNING,
                         message=f"术语不统一：{canonical}，实际使用：{', '.join(sorted(used))}",
-                        details={"canonical": canonical, "used_variants": list(used)},
+                        details={
+                            "canonical": canonical,
+                            "used_variants": list(used),
+                            "start_ms": earliest_ms,
+                        },
                     )
                 )
         return issues

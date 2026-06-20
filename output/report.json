@@ -1,0 +1,125 @@
+{
+  "generated_at": "2026-06-21T04:49:05.637317",
+  "fps": 24.0,
+  "summary": {
+    "total_files": 1,
+    "total_issues": 6,
+    "by_severity": {
+      "warning": 2,
+      "error": 1,
+      "info": 3
+    },
+    "by_type": {
+      "blank_line": 1,
+      "overlap": 1,
+      "line_too_long": 1,
+      "missing_punctuation": 3
+    },
+    "by_file": {
+      "test_blank_lines.srt": 6
+    }
+  },
+  "files": [
+    {
+      "filepath": "test_blank_lines.srt",
+      "language": "zh",
+      "fps": 24.0,
+      "entry_count": 6,
+      "issues": [
+        {
+          "type": "blank_line",
+          "type_label": "正文空白行",
+          "severity": "warning",
+          "subtitle_index": 1,
+          "line_number": null,
+          "message": "正文含空白行 #1：第 2 行为空",
+          "suggestion": "删除正文中的空白行",
+          "details": {
+            "blank_line_positions": [
+              2
+            ],
+            "total_lines": 4,
+            "start_ms": 1100,
+            "text": "欢迎来到这个测试字幕。\n\n这里有一行正文中间的空行。\n还有第三行。"
+          }
+        },
+        {
+          "type": "overlap",
+          "type_label": "时间轴重叠",
+          "severity": "error",
+          "subtitle_index": 3,
+          "line_number": null,
+          "message": "时间轴重叠 #2→#3，重叠 500ms/12帧@24.0fps",
+          "suggestion": "调整时间轴，消除重叠部分",
+          "details": {
+            "prev_index": 2,
+            "prev_end": "00:00:06,000 (F000144)",
+            "curr_start": "00:00:05,500 (F000132)",
+            "overlap_ms": 500,
+            "overlap_frames": 12,
+            "fps": 24.0,
+            "start_ms": 5500
+          }
+        },
+        {
+          "type": "line_too_long",
+          "type_label": "单行过长",
+          "severity": "warning",
+          "subtitle_index": 4,
+          "line_number": 1,
+          "message": "单行过长 #4 第1行：34字 > 20字",
+          "suggestion": "拆分为多行或精简文字",
+          "details": {
+            "length": 34,
+            "max": 20,
+            "line": 1,
+            "text": "这一行超长超长超长超长超长超长超长超长超长超长超长超长超过了行长限制",
+            "start_ms": 9000
+          }
+        },
+        {
+          "type": "missing_punctuation",
+          "type_label": "缺失标点",
+          "severity": "info",
+          "subtitle_index": 4,
+          "line_number": 1,
+          "message": "可能缺失标点 #4 第1行",
+          "suggestion": "补充句末标点符号",
+          "details": {
+            "line": 1,
+            "text": "这一行超长超长超长超长超长超长超长超长超长超长超长超长超过了行长限制",
+            "start_ms": 9000
+          }
+        },
+        {
+          "type": "missing_punctuation",
+          "type_label": "缺失标点",
+          "severity": "info",
+          "subtitle_index": 5,
+          "line_number": 1,
+          "message": "可能缺失标点 #5 第1行",
+          "suggestion": "补充句末标点符号",
+          "details": {
+            "line": 1,
+            "text": "这一行末尾没有标点",
+            "start_ms": 13000
+          }
+        },
+        {
+          "type": "missing_punctuation",
+          "type_label": "缺失标点",
+          "severity": "info",
+          "subtitle_index": 6,
+          "line_number": 1,
+          "message": "可能缺失标点 #6 第1行",
+          "suggestion": "补充句末标点符号",
+          "details": {
+            "line": 1,
+            "text": "我们确认这个术语没问题",
+            "start_ms": 17000
+          }
+        }
+      ]
+    }
+  ]
+}

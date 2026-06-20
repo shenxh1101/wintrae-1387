@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 from typing import List, Optional, Dict
 from enum import Enum
+import hashlib
+import os
 
 
 class IssueSeverity(Enum):
@@ -57,6 +59,7 @@ class Issue:
     line_number: Optional[int] = None
     subtitle_index: Optional[int] = None
     details: Dict = field(default_factory=dict)
+    _ignored: bool = False
 
     @property
     def suggestion(self) -> str:
@@ -65,6 +68,21 @@ class Issue:
     @property
     def type_label(self) -> str:
         return ISSUE_TYPE_LABELS.get(self.type, self.type.value)
+
+    def get_key(self, filepath: str) -> str:
+        parts = [os.path.abspath(filepath), self.type.value]
+        if self.subtitle_index is not None:
+            parts.append(f"idx:{self.subtitle_index}")
+        if self.line_number is not None:
+            parts.append(f"line:{self.line_number}")
+        if "start_ms" in self.details:
+            parts.append(f"start:{self.details['start_ms']}")
+        elif "start_frame" in self.details:
+            parts.append(f"sf:{self.details['start_frame']}")
+        if "text" in self.details:
+            parts.append(f"text:{str(self.details['text']).strip()[:50]}")
+        raw = "|".join(parts)
+        return hashlib.md5(raw.encode("utf-8")).hexdigest()
 
 
 @dataclass
@@ -98,13 +116,20 @@ class SubtitleEntry:
 
     @property
     def blank_line_indices(self) -> List[int]:
-        return [i for i, l in enumerate(self.text_lines) if not l.strip()]
+        return [i for i, l in enumerate(self.text_lines) if l.strip() == ""]
 
     def start_frame(self, fps: float) -> int:
         return int(self.start_time * fps / 1000)
 
     def end_frame(self, fps: float) -> int:
         return int(self.end_time * fps / 1000)
+
+    def align_to_frames(self, fps: float) -> "SubtitleEntry":
+        self.start_time = int(round(self.start_time * fps / 1000) * 1000 / fps)
+        self.end_time = int(round(self.end_time * fps / 1000) * 1000 / fps)
+        if self.end_time <= self.start_time:
+            self.end_time = self.start_time + int(round(1000 / fps))
+        return self
 
 
 @dataclass
@@ -123,8 +148,22 @@ class SubtitleFile:
 
     @property
     def filename(self) -> str:
-        import os
         return os.path.basename(self.filepath)
+
+    def get_entry(self, index: int) -> Optional[SubtitleEntry]:
+        for e in self.entries:
+            if e.index == index:
+                return e
+        return None
+
+    def get_context_entries(self, index: int, radius: int = 1) -> List[SubtitleEntry]:
+        result = []
+        for offset in range(-radius, radius + 1):
+            target = index + offset
+            entry = self.get_entry(target)
+            if entry:
+                result.append(entry)
+        return result
 
 
 @dataclass

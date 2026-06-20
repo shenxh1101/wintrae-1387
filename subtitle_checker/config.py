@@ -1,6 +1,8 @@
 import os
 import json
-from typing import Dict, List, Optional, Set
+import hashlib
+from typing import Dict, List, Optional, Set, Any
+from datetime import datetime
 
 
 DEFAULT_TERMS: Dict[str, Dict[str, List[str]]] = {
@@ -33,6 +35,7 @@ DEFAULT_CONFIG = {
     "language": None,
     "fps": 24.0,
     "output_dir": None,
+    "align_to_frames": True,
     "max_line_length": {
         "zh": 20,
         "en": 42,
@@ -47,29 +50,157 @@ DEFAULT_CONFIG = {
     },
     "punctuation_end": ["。", "！", "？", ".", "!", "?", "…", "...", "」", "”", "』"],
     "terms": DEFAULT_TERMS,
+    "ignored_issues": [],
 }
 
 PROJECT_CONFIG_FILENAME = "subtitle_config.json"
+IGNORE_LIST_FILENAME = "subtitle_ignores.json"
 
 
-class Config:
-    def __init__(self, config_path: Optional[str] = None):
-        self.data = {k: v for k, v in DEFAULT_CONFIG.items() if k != "terms"}
-        self.data["language"] = None
-        self.data["fps"] = 24.0
-        self.data["output_dir"] = None
-        self.terms = {}
-        for lang, terms in DEFAULT_TERMS.items():
-            self.terms[lang] = dict(terms)
-        self.config_path = config_path
-        if config_path and os.path.exists(config_path):
-            self._load(config_path)
+class IgnoreList:
+    def __init__(self, ignore_path: Optional[str] = None):
+        self.path = ignore_path
+        self.entries: List[Dict[str, Any]] = []
+        self._content_hashes: Dict[str, str] = {}
+        if ignore_path and os.path.exists(ignore_path):
+            self._load(ignore_path)
 
     def _load(self, path: str):
         try:
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            for key in ("language", "fps", "output_dir"):
+            self.entries = data.get("ignored_issues", [])
+            for e in self.entries:
+                if "content_hash" in e and "file" in e:
+                    self._content_hashes[e["file"]] = e.get("content_hash", "")
+        except (json.JSONDecodeError, IOError):
+            pass
+
+    def save(self, path: Optional[str] = None):
+        out = path or self.path or IGNORE_LIST_FILENAME
+        data = {
+            "generated_at": datetime.now().isoformat(),
+            "ignored_issues": self.entries,
+        }
+        with open(out, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+
+    @staticmethod
+    def compute_content_hash(filepath: str) -> str:
+        try:
+            with open(filepath, "rb") as f:
+                return hashlib.md5(f.read()).hexdigest()
+        except IOError:
+            return ""
+
+    @staticmethod
+    def compute_issue_key(
+        filepath: str,
+        issue_type: str,
+        subtitle_index: Optional[int],
+        line_number: Optional[int],
+        start_ms: Optional[int] = None,
+        text: Optional[str] = None,
+    ) -> str:
+        parts = [os.path.abspath(filepath), issue_type]
+        if subtitle_index is not None:
+            parts.append(f"idx:{subtitle_index}")
+        if line_number is not None:
+            parts.append(f"line:{line_number}")
+        if start_ms is not None:
+            parts.append(f"start:{start_ms}")
+        if text:
+            parts.append(f"text:{text.strip()[:50]}")
+        raw = "|".join(parts)
+        return hashlib.md5(raw.encode("utf-8")).hexdigest()
+
+    def is_ignored(
+        self,
+        filepath: str,
+        issue_type: str,
+        subtitle_index: Optional[int],
+        line_number: Optional[int] = None,
+        start_ms: Optional[int] = None,
+        text: Optional[str] = None,
+    ) -> bool:
+        abs_path = os.path.abspath(filepath)
+        current_hash = self.compute_content_hash(abs_path)
+        key = self.compute_issue_key(abs_path, issue_type, subtitle_index, line_number, start_ms, text)
+        for entry in self.entries:
+            if entry.get("key") == key:
+                if entry.get("file") == abs_path:
+                    stored_hash = entry.get("content_hash", "")
+                    if stored_hash and stored_hash == current_hash:
+                        return True
+        return False
+
+    def add_ignore(
+        self,
+        filepath: str,
+        issue_type: str,
+        subtitle_index: Optional[int],
+        line_number: Optional[int] = None,
+        start_ms: Optional[int] = None,
+        text: Optional[str] = None,
+        reason: str = "",
+    ) -> str:
+        abs_path = os.path.abspath(filepath)
+        key = self.compute_issue_key(abs_path, issue_type, subtitle_index, line_number, start_ms, text)
+        content_hash = self.compute_content_hash(abs_path)
+        for entry in self.entries:
+            if entry.get("key") == key and entry.get("file") == abs_path:
+                entry["content_hash"] = content_hash
+                entry["reason"] = reason
+                entry["updated_at"] = datetime.now().isoformat()
+                return key
+        self.entries.append({
+            "key": key,
+            "file": abs_path,
+            "issue_type": issue_type,
+            "subtitle_index": subtitle_index,
+            "line_number": line_number,
+            "start_ms": start_ms,
+            "text_snippet": (text or "")[:50],
+            "content_hash": content_hash,
+            "reason": reason,
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat(),
+        })
+        return key
+
+    def clear(self):
+        self.entries = []
+
+    def __len__(self) -> int:
+        return len(self.entries)
+
+
+class Config:
+    def __init__(self, config_path: Optional[str] = None):
+        self.data = {k: v for k, v in DEFAULT_CONFIG.items() if k not in ("terms", "ignored_issues")}
+        self.data["language"] = None
+        self.data["fps"] = 24.0
+        self.data["output_dir"] = None
+        self.data["align_to_frames"] = True
+        self.terms: Dict[str, Dict[str, List[str]]] = {}
+        for lang, terms in DEFAULT_TERMS.items():
+            self.terms[lang] = dict(terms)
+        self.ignore_list = IgnoreList()
+        self.config_path = config_path
+        self.ignore_path: Optional[str] = None
+        if config_path and os.path.exists(config_path):
+            self._load(config_path)
+            cfg_dir = os.path.dirname(os.path.abspath(config_path))
+            candidate_ignore = os.path.join(cfg_dir, IGNORE_LIST_FILENAME)
+            if os.path.exists(candidate_ignore):
+                self.ignore_path = candidate_ignore
+                self.ignore_list = IgnoreList(candidate_ignore)
+
+    def _load(self, path: str):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            for key in ("language", "fps", "output_dir", "align_to_frames"):
                 if key in data:
                     self.data[key] = data[key]
             for key in ("max_line_length", "reading_speed", "min_duration_per_line"):
@@ -94,6 +225,9 @@ class Config:
     def get_output_dir(self) -> Optional[str]:
         return self.data.get("output_dir")
 
+    def should_align_frames(self) -> bool:
+        return self.data.get("align_to_frames", True)
+
     def get_max_line_length(self, lang: str) -> int:
         return self.data["max_line_length"].get(lang, self.data["max_line_length"]["en"])
 
@@ -116,13 +250,19 @@ class Config:
         return result
 
     def to_dict(self) -> dict:
-        d = dict(self.data)
-        d["terms"] = dict(self.terms)
+        d = {k: v for k, v in self.data.items()}
+        d["terms"] = {lang: dict(t) for lang, t in self.terms.items()}
         return d
+
+    def save_ignore_list(self):
+        if self.ignore_path:
+            self.ignore_list.save(self.ignore_path)
+        else:
+            self.ignore_list.save(IGNORE_LIST_FILENAME)
 
     @staticmethod
     def generate_template(output_path: str) -> str:
-        template = {k: v for k, v in DEFAULT_CONFIG.items()}
+        template = {k: v for k, v in DEFAULT_CONFIG.items() if k != "ignored_issues"}
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(template, f, ensure_ascii=False, indent=2)
         return output_path

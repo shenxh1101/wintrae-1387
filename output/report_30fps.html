@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>字幕翻译质量检查报告</title>
+<style>
+* { box-sizing: border-box; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    margin: 0; padding: 20px; background: #f5f5f7; color: #1d1d1f;
+}
+.container { max-width: 1200px; margin: 0 auto; }
+header { background: linear-gradient(135deg, #0071e3, #00c7be); color: #fff;
+    padding: 24px 28px; border-radius: 12px; margin-bottom: 20px; }
+header h1 { margin: 0 0 6px; font-size: 22px; }
+header .meta { font-size: 13px; opacity: 0.9; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px; margin-bottom: 20px; }
+.stat-card { background: #fff; padding: 16px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.stat-card .label { font-size: 12px; color: #6e6e73; margin-bottom: 4px; }
+.stat-card .value { font-size: 26px; font-weight: 600; color: #1d1d1f; }
+.stat-card.error .value { color: #ff3b30; }
+.stat-card.warning .value { color: #ff9500; }
+.stat-card.info .value { color: #0071e3; }
+.filters { background: #fff; padding: 16px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 20px; }
+.filter-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.filter-group { display: flex; align-items: center; gap: 6px; }
+.filter-group label { font-size: 13px; color: #6e6e73; }
+select, input[type="text"] { padding: 6px 10px; border: 1px solid #d2d2d7; border-radius: 6px;
+    font-size: 13px; background: #fff; }
+.issue-list { display: flex; flex-direction: column; gap: 10px; }
+.issue-item { background: #fff; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    overflow: hidden; transition: box-shadow 0.2s; }
+.issue-item:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+.issue-header { display: flex; align-items: center; gap: 10px; padding: 12px 16px; cursor: pointer; user-select: none; }
+.issue-header:hover { background: #fafafa; }
+.sev-badge { padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 600;
+    color: #fff; flex-shrink: 0; }
+.sev-badge.error { background: #ff3b30; }
+.sev-badge.warning { background: #ff9500; }
+.sev-badge.info { background: #0071e3; }
+.type-badge { padding: 3px 10px; border-radius: 6px; font-size: 12px; background: #e5e5ea; color: #1d1d1f; }
+.issue-msg { flex: 1; font-size: 14px; }
+.issue-meta { font-size: 12px; color: #6e6e73; flex-shrink: 0; text-align: right; }
+.chevron { font-size: 18px; color: #6e6e73; transition: transform 0.2s; }
+.issue-item.expanded .chevron { transform: rotate(90deg); }
+.issue-body { display: none; padding: 0 16px 16px; border-top: 1px solid #f0f0f0; }
+.issue-item.expanded .issue-body { display: block; }
+.issue-section { margin-top: 12px; }
+.issue-section h4 { font-size: 13px; color: #6e6e73; margin: 0 0 6px; }
+.suggestion { background: #f0f9ff; border-left: 3px solid #0071e3; padding: 10px 12px;
+    border-radius: 0 6px 6px 0; font-size: 13px; }
+.context-line { padding: 8px 10px; border-radius: 6px; margin-bottom: 4px; font-size: 13px; background: #fafafa; }
+.context-line.context-target { background: #fff4e5; border-left: 3px solid #ff9500; }
+.ctx-idx { font-weight: 600; color: #0071e3; margin-right: 6px; }
+.ctx-tc { color: #6e6e73; font-family: "SF Mono", Menlo, Consolas, monospace; margin-right: 8px; }
+.ctx-frames { color: #86868b; font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 11px; }
+.ctx-text { margin-top: 4px; padding-left: 22px; color: #1d1d1f; line-height: 1.5; }
+.no-results { text-align: center; padding: 60px 20px; color: #6e6e73; font-size: 15px; }
+footer { margin-top: 30px; text-align: center; font-size: 12px; color: #86868b; }
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+    <h1>🎬 字幕翻译质量检查报告</h1>
+    <div class="meta">
+        生成时间: 2026-06-21 04:48:47 ·
+        帧率: 30.0 fps ·
+        文件: 1 ·
+        问题: 6
+    </div>
+</header>
+
+<div class="stats">
+    <div class="stat-card">
+        <div class="label">总问题数</div>
+        <div class="value">6</div>
+    </div>
+    <div class="stat-card error">
+        <div class="label">错误</div>
+        <div class="value">1</div>
+    </div>
+    <div class="stat-card warning">
+        <div class="label">警告</div>
+        <div class="value">2</div>
+    </div>
+    <div class="stat-card info">
+        <div class="label">信息</div>
+        <div class="value">3</div>
+    </div>
+</div>
+
+<div class="filters">
+    <div class="filter-row">
+        <div class="filter-group">
+            <label>文件:</label>
+            <select id="filterFile">
+                <option value="">全部</option>
+                <option value="test_blank_lines.srt">test_blank_lines.srt</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>类型:</label>
+            <select id="filterType">
+                <option value="">全部</option>
+                <option value="时间轴重叠">时间轴重叠</option><option value="正文空白行">正文空白行</option><option value="单行过长">单行过长</option><option value="缺失标点">缺失标点</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>严重程度:</label>
+            <select id="filterSev">
+                <option value="">全部</option>
+                <option value="error">错误</option><option value="warning">警告</option><option value="info">信息</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>搜索:</label>
+            <input type="text" id="filterSearch" placeholder="输入关键词...">
+        </div>
+    </div>
+</div>
+
+<div id="issueList" class="issue-list"></div>
+<div id="noResults" class="no-results" style="display:none;">没有符合条件的问题 ✓</div>
+
+<footer>Generated by Subtitle Checker · 2026-06-21</footer>
+</div>
+
+<script>
+const ISSUES = [{"file": "test_blank_lines.srt", "filePath": "test_blank_lines.srt", "type": "blank_line", "typeLabel": "正文空白行", "severity": "warning", "subtitleIndex": 1, "lineNumber": null, "message": "正文含空白行 #1：第 2 行为空", "suggestion": "删除正文中的空白行", "details": {"blank_line_positions": [2], "total_lines": 4, "start_ms": 1100, "text": "欢迎来到这个测试字幕。\n\n这里有一行正文中间的空行。\n还有第三行。"}, "contextHtml": "<div class=\"context-line context-target\"><span class=\"ctx-idx\">#1</span> <span class=\"ctx-tc\">00:00:01,100 → 00:00:04,200</span> <span class=\"ctx-frames\">[F000033–F000126]</span><div class=\"ctx-text\">欢迎来到这个测试字幕。<br>&nbsp;<br>这里有一行正文中间的空行。<br>还有第三行。</div></div><div class=\"context-line\"><span class=\"ctx-idx\">#2</span> <span class=\"ctx-tc\">00:00:05,000 → 00:00:06,000</span> <span class=\"ctx-frames\">[F000150–F000180]</span><div class=\"ctx-text\">这一条时间太短，阅读速度过快。</div></div><div class=\"context-line\"><span class=\"ctx-idx\">#3</span> <span class=\"ctx-tc\">00:00:05,500 → 00:00:08,000</span> <span class=\"ctx-frames\">[F000165–F000240]</span><div class=\"ctx-text\">这一条和上一条时间重叠了。</div></div>"}, {"file": "test_blank_lines.srt", "filePath": "test_blank_lines.srt", "type": "overlap", "typeLabel": "时间轴重叠", "severity": "error", "subtitleIndex": 3, "lineNumber": null, "message": "时间轴重叠 #2→#3，重叠 500ms/15帧@30.0fps", "suggestion": "调整时间轴，消除重叠部分", "details": {"prev_index": 2, "prev_end": "00:00:06,000 (F000180)", "curr_start": "00:00:05,500 (F000165)", "overlap_ms": 500, "overlap_frames": 15, "fps": 30.0, "start_ms": 5500}, "contextHtml": "<div class=\"context-line\"><span class=\"ctx-idx\">#1</span> <span class=\"ctx-tc\">00:00:01,100 → 00:00:04,200</span> <span class=\"ctx-frames\">[F000033–F000126]</span><div class=\"ctx-text\">欢迎来到这个测试字幕。<br>&nbsp;<br>这里有一行正文中间的空行。<br>还有第三行。</div></div><div class=\"context-line\"><span class=\"ctx-idx\">#2</span> <span class=\"ctx-tc\">00:00:05,000 → 00:00:06,000</span> <span class=\"ctx-frames\">[F000150–F000180]</span><div class=\"ctx-text\">这一条时间太短，阅读速度过快。</div></div><div class=\"context-line context-target\"><span class=\"ctx-idx\">#3</span> <span class=\"ctx-tc\">00:00:05,500 → 00:00:08,000</span> <span class=\"ctx-frames\">[F000165–F000240]</span><div class=\"ctx-text\">这一条和上一条时间重叠了。</div></div><div class=\"context-line\"><span class=\"ctx-idx\">#4</span> <span class=\"ctx-tc\">00:00:09,000 → 00:00:12,500</span> <span class=\"ctx-frames\">[F000270–F000375]</span><div class=\"ctx-text\">这一行超长超长超长超长超长超长超长超长超长超长超长超长超过了行长限制</div></div><div class=\"context-line\"><span class=\"ctx-idx\">#5</span> <span class=\"ctx-tc\">00:00:13,000 → 00:00:16,000</span> <span class=\"ctx-frames\">[F000390–F000480]</span><div class=\"ctx-text\">这一行末尾没有标点</div></div>"}, {"file": "test_blank_lines.srt", "filePath": "test_blank_lines.srt", "type": "line_too_long", "typeLabel": "单行过长", "severity": "warning", "subtitleIndex": 4, "lineNumber": 1, "message": "单行过长 #4 第1行：34字 > 20字", "suggestion": "拆分为多行或精简文字", "details": {"length": 34, "max": 20, "line": 1, "text": "这一行超长超长超长超长超长超长超长超长超长超长超长超长超过了行长限制", "start_ms": 9000}, "contextHtml": "<div class=\"context-line\"><span class=\"ctx-idx\">#2</span> <span class=\"ctx-tc\">00:00:05,000 → 00:00:06,000</span> <span class=\"ctx-frames\">[F000150–F000180]</span><div class=\"ctx-text\">这一条时间太短，阅读速度过快。</div></div><div class=\"context-line\"><span class=\"ctx-idx\">#3</span> <span class=\"ctx-tc\">00:00:05,500 → 00:00:08,000</span> <span class=\"ctx-frames\">[F000165–F000240]</span><div class=\"ctx-text\">这一条和上一条时间重叠了。</div></div><div class=\"context-line context-target\"><span class=\"ctx-idx\">#4</span> <span class=\"ctx-tc\">00:00:09,000 → 00:00:12,500</span> <span class=\"ctx-frames\">[F000270–F000375]</span><div class=\"ctx-text\">这一行超长超长超长超长超长超长超长超长超长超长超长超长超过了行长限制</div></div><div class=\"context-line\"><span class=\"ctx-idx\">#5</span> <span class=\"ctx-tc\">00:00:13,000 → 00:00:16,000</span> <span class=\"ctx-frames\">[F000390–F000480]</span><div class=\"ctx-text\">这一行末尾没有标点</div></div><div class=\"context-line\"><span class=\"ctx-idx\">#6</span> <span class=\"ctx-tc\">00:00:17,000 → 00:00:20,000</span> <span class=\"ctx-frames\">[F000510–F000600]</span><div class=\"ctx-text\">我们确认这个术语没问题</div></div>"}, {"file": "test_blank_lines.srt", "filePath": "test_blank_lines.srt", "type": "missing_punctuation", "typeLabel": "缺失标点", "severity": "info", "subtitleIndex": 4, "lineNumber": 1, "message": "可能缺失标点 #4 第1行", "suggestion": "补充句末标点符号", "details": {"line": 1, "text": "这一行超长超长超长超长超长超长超长超长超长超长超长超长超过了行长限制", "start_ms": 9000}, "contextHtml": "<div class=\"context-line\"><span class=\"ctx-idx\">#2</span> <span class=\"ctx-tc\">00:00:05,000 → 00:00:06,000</span> <span class=\"ctx-frames\">[F000150–F000180]</span><div class=\"ctx-text\">这一条时间太短，阅读速度过快。</div></div><div class=\"context-line\"><span class=\"ctx-idx\">#3</span> <span class=\"ctx-tc\">00:00:05,500 → 00:00:08,000</span> <span class=\"ctx-frames\">[F000165–F000240]</span><div class=\"ctx-text\">这一条和上一条时间重叠了。</div></div><div class=\"context-line context-target\"><span class=\"ctx-idx\">#4</span> <span class=\"ctx-tc\">00:00:09,000 → 00:00:12,500</span> <span class=\"ctx-frames\">[F000270–F000375]</span><div class=\"ctx-text\">这一行超长超长超长超长超长超长超长超长超长超长超长超长超过了行长限制</div></div><div class=\"context-line\"><span class=\"ctx-idx\">#5</span> <span class=\"ctx-tc\">00:00:13,000 → 00:00:16,000</span> <span class=\"ctx-frames\">[F000390–F000480]</span><div class=\"ctx-text\">这一行末尾没有标点</div></div><div class=\"context-line\"><span class=\"ctx-idx\">#6</span> <span class=\"ctx-tc\">00:00:17,000 → 00:00:20,000</span> <span class=\"ctx-frames\">[F000510–F000600]</span><div class=\"ctx-text\">我们确认这个术语没问题</div></div>"}, {"file": "test_blank_lines.srt", "filePath": "test_blank_lines.srt", "type": "missing_punctuation", "typeLabel": "缺失标点", "severity": "info", "subtitleIndex": 5, "lineNumber": 1, "message": "可能缺失标点 #5 第1行", "suggestion": "补充句末标点符号", "details": {"line": 1, "text": "这一行末尾没有标点", "start_ms": 13000}, "contextHtml": "<div class=\"context-line\"><span class=\"ctx-idx\">#3</span> <span class=\"ctx-tc\">00:00:05,500 → 00:00:08,000</span> <span class=\"ctx-frames\">[F000165–F000240]</span><div class=\"ctx-text\">这一条和上一条时间重叠了。</div></div><div class=\"context-line\"><span class=\"ctx-idx\">#4</span> <span class=\"ctx-tc\">00:00:09,000 → 00:00:12,500</span> <span class=\"ctx-frames\">[F000270–F000375]</span><div class=\"ctx-text\">这一行超长超长超长超长超长超长超长超长超长超长超长超长超过了行长限制</div></div><div class=\"context-line context-target\"><span class=\"ctx-idx\">#5</span> <span class=\"ctx-tc\">00:00:13,000 → 00:00:16,000</span> <span class=\"ctx-frames\">[F000390–F000480]</span><div class=\"ctx-text\">这一行末尾没有标点</div></div><div class=\"context-line\"><span class=\"ctx-idx\">#6</span> <span class=\"ctx-tc\">00:00:17,000 → 00:00:20,000</span> <span class=\"ctx-frames\">[F000510–F000600]</span><div class=\"ctx-text\">我们确认这个术语没问题</div></div>"}, {"file": "test_blank_lines.srt", "filePath": "test_blank_lines.srt", "type": "missing_punctuation", "typeLabel": "缺失标点", "severity": "info", "subtitleIndex": 6, "lineNumber": 1, "message": "可能缺失标点 #6 第1行", "suggestion": "补充句末标点符号", "details": {"line": 1, "text": "我们确认这个术语没问题", "start_ms": 17000}, "contextHtml": "<div class=\"context-line\"><span class=\"ctx-idx\">#4</span> <span class=\"ctx-tc\">00:00:09,000 → 00:00:12,500</span> <span class=\"ctx-frames\">[F000270–F000375]</span><div class=\"ctx-text\">这一行超长超长超长超长超长超长超长超长超长超长超长超长超过了行长限制</div></div><div class=\"context-line\"><span class=\"ctx-idx\">#5</span> <span class=\"ctx-tc\">00:00:13,000 → 00:00:16,000</span> <span class=\"ctx-frames\">[F000390–F000480]</span><div class=\"ctx-text\">这一行末尾没有标点</div></div><div class=\"context-line context-target\"><span class=\"ctx-idx\">#6</span> <span class=\"ctx-tc\">00:00:17,000 → 00:00:20,000</span> <span class=\"ctx-frames\">[F000510–F000600]</span><div class=\"ctx-text\">我们确认这个术语没问题</div></div>"}];
+
+const $f = id => document.getElementById(id);
+
+function render() {
+    const file = $f('filterFile').value;
+    const type = $f('filterType').value;
+    const sev = $f('filterSev').value;
+    const search = $f('filterSearch').value.toLowerCase().trim();
+
+    const list = $f('issueList');
+    const noResults = $f('noResults');
+    list.innerHTML = '';
+
+    const filtered = ISSUES.filter(it => {
+        if (file && it.file !== file) return false;
+        if (type && it.typeLabel !== type) return false;
+        if (sev && it.severity !== sev) return false;
+        if (search) {
+            const hay = (it.message + ' ' + it.suggestion + ' ' + it.file).toLowerCase();
+            if (!hay.includes(search)) return false;
+        }
+        return true;
+    });
+
+    noResults.style.display = filtered.length === 0 ? 'block' : 'none';
+
+    for (const issue of filtered) {
+        const item = document.createElement('div');
+        item.className = 'issue-item';
+        const sevText = {
+            error: '错误', warning: '警告', info: '信息'
+        }[issue.severity] || issue.severity;
+
+        let meta = '';
+        if (issue.subtitleIndex) meta += `#${issue.subtitleIndex} `;
+        meta += issue.file;
+
+        item.innerHTML = `
+            <div class="issue-header">
+                <span class="chevron">▶</span>
+                <span class="sev-badge ${issue.severity}">${sevText}</span>
+                <span class="type-badge">${issue.typeLabel}</span>
+                <div class="issue-msg">${_html_escape(issue.message)}</div>
+                <div class="issue-meta">${_html_escape(meta)}</div>
+            </div>
+            <div class="issue-body">
+                ${issue.suggestion ? `<div class="issue-section"><h4>💡 建议处理方式</h4><div class="suggestion">${_html_escape(issue.suggestion)}</div></div>` : ''}
+                ${issue.contextHtml ? `<div class="issue-section"><h4>📝 上下文（±2条）</h4>${issue.contextHtml}</div>` : ''}
+            </div>
+        `;
+
+        item.querySelector('.issue-header').addEventListener('click', () => {
+            item.classList.toggle('expanded');
+        });
+
+        list.appendChild(item);
+    }
+}
+
+function _html_escape(s) {
+    return String(s).replace(/[&<>"']/g, c => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+}
+
+['filterFile', 'filterType', 'filterSev', 'filterSearch'].forEach(id => {
+    $f(id).addEventListener('input', render);
+    $f(id).addEventListener('change', render);
+});
+
+render();
+</script>
+</body>
+</html>
