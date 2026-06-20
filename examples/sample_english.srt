@@ -1,0 +1,19 @@
+1
+00:00:00,500 --> 00:00:03,000
+Welcome to our tutorial on artificial intelligence
+
+2
+00:00:03,500 --> 00:00:06,000
+Today we will learn about machine learning algorithms
+
+3
+00:00:06,500 --> 00:00:09,000
+Deep learning models require large amounts of training data
+
+4
+00:00:09,500 --> 00:00:12,500
+Neural networks are inspired by biological brain structures
+
+5
+00:00:13,000 --> 00:00:16,000
+The user interface should be intuitive and responsive
