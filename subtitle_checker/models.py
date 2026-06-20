@@ -11,6 +11,27 @@ class IssueSeverity(Enum):
     INFO = "info"
 
 
+class IssueStatus(Enum):
+    UNRESOLVED = "unresolved"
+    CONFIRMED = "confirmed"
+    FIXED = "fixed"
+    REJECTED = "rejected"
+
+
+ISSUE_STATUS_LABELS = {
+    IssueStatus.UNRESOLVED: "待处理",
+    IssueStatus.CONFIRMED: "已确认",
+    IssueStatus.FIXED: "已修复",
+    IssueStatus.REJECTED: "不予处理",
+}
+
+
+class DiffStatus(Enum):
+    NEW = "new"
+    RESOLVED = "resolved"
+    REMAINING = "remaining"
+
+
 class IssueType(Enum):
     OVERLAP = "overlap"
     EMPTY_LINE = "empty_line"
@@ -59,6 +80,8 @@ class Issue:
     line_number: Optional[int] = None
     subtitle_index: Optional[int] = None
     details: Dict = field(default_factory=dict)
+    status: IssueStatus = IssueStatus.UNRESOLVED
+    note: str = ""
     _ignored: bool = False
 
     @property
@@ -68,6 +91,10 @@ class Issue:
     @property
     def type_label(self) -> str:
         return ISSUE_TYPE_LABELS.get(self.type, self.type.value)
+
+    @property
+    def status_label(self) -> str:
+        return ISSUE_STATUS_LABELS.get(self.status, self.status.value)
 
     def get_key(self, filepath: str) -> str:
         parts = [os.path.abspath(filepath), self.type.value]
@@ -81,6 +108,18 @@ class Issue:
             parts.append(f"sf:{self.details['start_frame']}")
         if "text" in self.details:
             parts.append(f"text:{str(self.details['text']).strip()[:50]}")
+        raw = "|".join(parts)
+        return hashlib.md5(raw.encode("utf-8")).hexdigest()
+
+    def get_term_key(self, filepath: str) -> Optional[str]:
+        if self.type != IssueType.TERM_INCONSISTENCY:
+            return None
+        text = self.details.get("text", "")
+        canon = self.details.get("canonical", "")
+        variant = self.details.get("variant", "")
+        if not (canon and variant and text):
+            return None
+        parts = [os.path.abspath(filepath), "term", canon.lower(), variant.lower()]
         raw = "|".join(parts)
         return hashlib.md5(raw.encode("utf-8")).hexdigest()
 
@@ -207,3 +246,22 @@ class ScanResult:
     @property
     def stats_by_file(self) -> Dict[str, int]:
         return {f.filepath: len(f.issues) for f in self.files}
+
+
+@dataclass
+class BatchDiff:
+    new_issues: List = field(default_factory=list)
+    resolved_issues: List = field(default_factory=list)
+    remaining_issues: List = field(default_factory=list)
+
+    @property
+    def new_count(self) -> int:
+        return len(self.new_issues)
+
+    @property
+    def resolved_count(self) -> int:
+        return len(self.resolved_issues)
+
+    @property
+    def remaining_count(self) -> int:
+        return len(self.remaining_issues)

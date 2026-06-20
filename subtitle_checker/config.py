@@ -61,6 +61,7 @@ class IgnoreList:
     def __init__(self, ignore_path: Optional[str] = None):
         self.path = ignore_path
         self.entries: List[Dict[str, Any]] = []
+        self.term_entries: List[Dict[str, Any]] = []
         self._content_hashes: Dict[str, str] = {}
         if ignore_path and os.path.exists(ignore_path):
             self._load(ignore_path)
@@ -70,6 +71,7 @@ class IgnoreList:
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
             self.entries = data.get("ignored_issues", [])
+            self.term_entries = data.get("ignored_terms", [])
             for e in self.entries:
                 if "content_hash" in e and "file" in e:
                     self._content_hashes[e["file"]] = e.get("content_hash", "")
@@ -81,6 +83,7 @@ class IgnoreList:
         data = {
             "generated_at": datetime.now().isoformat(),
             "ignored_issues": self.entries,
+            "ignored_terms": self.term_entries,
         }
         with open(out, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
@@ -122,6 +125,8 @@ class IgnoreList:
         line_number: Optional[int] = None,
         start_ms: Optional[int] = None,
         text: Optional[str] = None,
+        canonical: Optional[str] = None,
+        variant: Optional[str] = None,
     ) -> bool:
         abs_path = os.path.abspath(filepath)
         current_hash = self.compute_content_hash(abs_path)
@@ -132,7 +137,50 @@ class IgnoreList:
                     stored_hash = entry.get("content_hash", "")
                     if stored_hash and stored_hash == current_hash:
                         return True
+        if issue_type == "term_inconsistency" and canonical and variant:
+            term_key = self.compute_term_key(abs_path, canonical, variant)
+            for t in self.term_entries:
+                if t.get("term_key") == term_key and t.get("file") == abs_path:
+                    stored_hash = t.get("content_hash", "")
+                    if stored_hash and stored_hash == current_hash:
+                        return True
         return False
+
+    @staticmethod
+    def compute_term_key(filepath: str, canonical: str, variant: str) -> str:
+        parts = [os.path.abspath(filepath), "term", canonical.lower(), variant.lower()]
+        return hashlib.md5("|".join(parts).encode("utf-8")).hexdigest()
+
+    def add_term_ignore(
+        self,
+        filepath: str,
+        canonical: str,
+        variant: str,
+        reason: str = "",
+    ) -> str:
+        abs_path = os.path.abspath(filepath)
+        term_key = self.compute_term_key(abs_path, canonical, variant)
+        content_hash = self.compute_content_hash(abs_path)
+        for t in self.term_entries:
+            if t.get("term_key") == term_key and t.get("file") == abs_path:
+                t["content_hash"] = content_hash
+                t["reason"] = reason
+                t["updated_at"] = datetime.now().isoformat()
+                return term_key
+        self.term_entries.append({
+            "term_key": term_key,
+            "file": abs_path,
+            "canonical": canonical,
+            "variant": variant,
+            "content_hash": content_hash,
+            "reason": reason,
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat(),
+        })
+        return term_key
+
+    def clear_terms(self):
+        self.term_entries = []
 
     def add_ignore(
         self,

@@ -1,0 +1,71 @@
+{
+  "generated_at": "2026-06-21T05:14:26.186131",
+  "fps": 24.0,
+  "total_files": 1,
+  "total_issues": 2,
+  "stats": {
+    "by_type": {
+      "line_too_long": 1,
+      "missing_punctuation": 1
+    },
+    "by_severity": {
+      "warning": 1,
+      "info": 1
+    },
+    "by_file": {
+      "ep01_test.srt": 2
+    }
+  },
+  "files": [
+    {
+      "filepath": "ep01_test.srt",
+      "filename": "ep01_test.srt",
+      "language": "zh",
+      "fps": 24.0,
+      "entry_count": 5,
+      "issue_count": 2,
+      "issues": [
+        {
+          "key": "8352c22edbb4dd304dcfec06cab83160",
+          "type": "line_too_long",
+          "type_label": "单行过长",
+          "severity": "warning",
+          "status": "unresolved",
+          "status_label": "待处理",
+          "subtitle_index": 4,
+          "line_number": 1,
+          "message": "单行过长 #4 第1行：25字 > 20字",
+          "suggestion": "拆分为多行或精简文字",
+          "note": "",
+          "details": {
+            "length": 25,
+            "max": 20,
+            "line": 1,
+            "text": "这一条仍过长非常非常非常特别特别长长长长长长长长。",
+            "start_ms": 9500
+          },
+          "start_frame": "F000228"
+        },
+        {
+          "key": "c33c1b4cd9aef4c4f809dbd5d5806aae",
+          "type": "missing_punctuation",
+          "type_label": "缺失标点",
+          "severity": "info",
+          "status": "unresolved",
+          "status_label": "待处理",
+          "subtitle_index": 5,
+          "line_number": 1,
+          "message": "可能缺失标点 #5 第1行",
+          "suggestion": "补充句末标点符号",
+          "note": "",
+          "details": {
+            "line": 1,
+            "text": "新增的标点缺失问题",
+            "start_ms": 13000
+          },
+          "start_frame": "F000312"
+        }
+      ]
+    }
+  ]
+}

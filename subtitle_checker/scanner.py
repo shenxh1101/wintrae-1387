@@ -51,9 +51,14 @@ class SubtitleScanner:
             return issues
         result = []
         for issue in issues:
-            key = issue.get_key(filepath)
             start_ms = issue.details.get("start_ms") if issue.subtitle_index else None
             text_snippet = issue.details.get("text")
+            canonical = issue.details.get("canonical")
+            variant = None
+            used = issue.details.get("used_variants")
+            if canonical and used:
+                other = [v for v in used if v != canonical]
+                variant = other[0] if other else used[0]
             if self.ignore_list.is_ignored(
                 filepath=filepath,
                 issue_type=issue.type.value,
@@ -61,6 +66,8 @@ class SubtitleScanner:
                 line_number=issue.line_number,
                 start_ms=start_ms,
                 text=text_snippet,
+                canonical=canonical,
+                variant=variant,
             ):
                 issue._ignored = True
                 continue
@@ -321,7 +328,7 @@ class SubtitleScanner:
         if not terms_map:
             return issues
         usage: Dict[str, Set[str]] = {canonical: set() for canonical in terms_map}
-        first_seen: Dict[str, Dict[str, Optional[int]]] = {}
+        first_seen: Dict[str, Dict[str, Dict]] = {}
         for i, entry in enumerate(sf.entries):
             text = entry.full_text
             for canonical, variants in terms_map.items():
@@ -331,23 +338,34 @@ class SubtitleScanner:
                         if canonical not in first_seen:
                             first_seen[canonical] = {}
                         if v not in first_seen[canonical]:
-                            first_seen[canonical][v] = entry.start_time
+                            first_seen[canonical][v] = {
+                                "start_ms": entry.start_time,
+                                "entry_idx": entry.index,
+                                "text": text,
+                            }
         for canonical, used in usage.items():
             if len(used) > 1:
-                earliest_ms = None
+                earliest = None
+                earliest_v = None
                 for v in used:
-                    ts = first_seen.get(canonical, {}).get(v)
-                    if ts is not None and (earliest_ms is None or ts < earliest_ms):
-                        earliest_ms = ts
+                    info = first_seen.get(canonical, {}).get(v)
+                    if info and (earliest is None or info["start_ms"] < earliest["start_ms"]):
+                        earliest = info
+                        earliest_v = v
+                other_variants = sorted([v for v in used if v != canonical])
+                sample_text = earliest["text"] if earliest else ""
                 issues.append(
                     Issue(
                         type=IssueType.TERM_INCONSISTENCY,
                         severity=IssueSeverity.WARNING,
                         message=f"术语不统一：{canonical}，实际使用：{', '.join(sorted(used))}",
+                        subtitle_index=earliest["entry_idx"] if earliest else None,
                         details={
                             "canonical": canonical,
+                            "variant": other_variants[0] if other_variants else earliest_v,
                             "used_variants": list(used),
-                            "start_ms": earliest_ms,
+                            "start_ms": earliest["start_ms"] if earliest else None,
+                            "text": sample_text[:200],
                         },
                     )
                 )
