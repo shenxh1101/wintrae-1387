@@ -1,5 +1,7 @@
 import os
 import re
+import fnmatch
+import time
 from typing import List, Optional, Tuple
 
 
@@ -13,6 +15,15 @@ def format_timecode(ms: int) -> str:
     seconds = ms // 1000
     milliseconds = ms % 1000
     return f"{hours:02d}:{minutes:02d}:{seconds:02d},{milliseconds:03d}"
+
+
+def format_frame(ms: int, fps: float) -> str:
+    frame = int(ms * fps / 1000)
+    return f"F{frame:06d}"
+
+
+def format_time_with_frames(ms: int, fps: float) -> str:
+    return f"{format_timecode(ms)} ({format_frame(ms, fps)})"
 
 
 def parse_timecode(tc: str) -> Optional[int]:
@@ -43,7 +54,12 @@ def frames_to_ms(frames: int, fps: float) -> int:
     return int(frames * 1000 / fps)
 
 
-def find_subtitle_files(directory: str, recursive: bool = True) -> List[str]:
+def find_subtitle_files(
+    directory: str,
+    recursive: bool = True,
+    pattern: Optional[str] = None,
+    since: Optional[float] = None,
+) -> List[str]:
     extensions = (".srt", ".vtt", ".ass")
     result = []
     if recursive:
@@ -56,6 +72,23 @@ def find_subtitle_files(directory: str, recursive: bool = True) -> List[str]:
             fp = os.path.join(directory, f)
             if os.path.isfile(fp) and f.lower().endswith(extensions):
                 result.append(fp)
+
+    if pattern:
+        filtered = []
+        for fp in result:
+            fname = os.path.basename(fp)
+            if fnmatch.fnmatch(fname, pattern):
+                filtered.append(fp)
+        result = filtered
+
+    if since is not None:
+        filtered = []
+        for fp in result:
+            mtime = os.path.getmtime(fp)
+            if mtime >= since:
+                filtered.append(fp)
+        result = filtered
+
     return sorted(result)
 
 
@@ -114,3 +147,18 @@ def split_dual_language_lines(lines: List[str]) -> Tuple[List[str], List[str]]:
 
 def ensure_directory(path: str):
     os.makedirs(path, exist_ok=True)
+
+
+def parse_since(value: str) -> Optional[float]:
+    try:
+        days = float(value)
+        return time.time() - days * 86400
+    except ValueError:
+        pass
+    for fmt in ("%Y-%m-%d", "%Y-%m-%d %H:%M", "%Y-%m-%dT%H:%M"):
+        try:
+            t = time.strptime(value, fmt)
+            return time.mktime(t)
+        except ValueError:
+            continue
+    return None

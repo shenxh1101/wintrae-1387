@@ -30,6 +30,9 @@ DEFAULT_TERMS: Dict[str, Dict[str, List[str]]] = {
 }
 
 DEFAULT_CONFIG = {
+    "language": None,
+    "fps": 24.0,
+    "output_dir": None,
     "max_line_length": {
         "zh": 20,
         "en": 42,
@@ -43,13 +46,22 @@ DEFAULT_CONFIG = {
         "en": 500,
     },
     "punctuation_end": ["。", "！", "？", ".", "!", "?", "…", "...", "」", "”", "』"],
+    "terms": DEFAULT_TERMS,
 }
+
+PROJECT_CONFIG_FILENAME = "subtitle_config.json"
 
 
 class Config:
     def __init__(self, config_path: Optional[str] = None):
-        self.data = dict(DEFAULT_CONFIG)
-        self.terms = dict(DEFAULT_TERMS)
+        self.data = {k: v for k, v in DEFAULT_CONFIG.items() if k != "terms"}
+        self.data["language"] = None
+        self.data["fps"] = 24.0
+        self.data["output_dir"] = None
+        self.terms = {}
+        for lang, terms in DEFAULT_TERMS.items():
+            self.terms[lang] = dict(terms)
+        self.config_path = config_path
         if config_path and os.path.exists(config_path):
             self._load(config_path)
 
@@ -57,12 +69,12 @@ class Config:
         try:
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            if "max_line_length" in data:
-                self.data["max_line_length"].update(data["max_line_length"])
-            if "reading_speed" in data:
-                self.data["reading_speed"].update(data["reading_speed"])
-            if "min_duration_per_line" in data:
-                self.data["min_duration_per_line"].update(data["min_duration_per_line"])
+            for key in ("language", "fps", "output_dir"):
+                if key in data:
+                    self.data[key] = data[key]
+            for key in ("max_line_length", "reading_speed", "min_duration_per_line"):
+                if key in data:
+                    self.data[key].update(data[key])
             if "punctuation_end" in data:
                 self.data["punctuation_end"] = data["punctuation_end"]
             if "terms" in data:
@@ -70,8 +82,17 @@ class Config:
                     if lang not in self.terms:
                         self.terms[lang] = {}
                     self.terms[lang].update(terms)
-        except (json.JSONDecodeError, IOError):
-            pass
+        except (json.JSONDecodeError, IOError) as e:
+            print(f"警告: 无法加载配置文件 {path}: {e}")
+
+    def get_language(self) -> Optional[str]:
+        return self.data.get("language")
+
+    def get_fps(self) -> float:
+        return self.data.get("fps", 24.0)
+
+    def get_output_dir(self) -> Optional[str]:
+        return self.data.get("output_dir")
 
     def get_max_line_length(self, lang: str) -> int:
         return self.data["max_line_length"].get(lang, self.data["max_line_length"]["en"])
@@ -93,3 +114,28 @@ class Config:
             all_variants.add(canonical)
             result[canonical] = all_variants
         return result
+
+    def to_dict(self) -> dict:
+        d = dict(self.data)
+        d["terms"] = dict(self.terms)
+        return d
+
+    @staticmethod
+    def generate_template(output_path: str) -> str:
+        template = {k: v for k, v in DEFAULT_CONFIG.items()}
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(template, f, ensure_ascii=False, indent=2)
+        return output_path
+
+    @staticmethod
+    def find_project_config(start_dir: str = ".") -> Optional[str]:
+        current = os.path.abspath(start_dir)
+        while True:
+            candidate = os.path.join(current, PROJECT_CONFIG_FILENAME)
+            if os.path.exists(candidate):
+                return candidate
+            parent = os.path.dirname(current)
+            if parent == current:
+                break
+            current = parent
+        return None

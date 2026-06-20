@@ -7,7 +7,7 @@ from .utils import parse_timecode, detect_language, format_timecode
 
 class SubtitleParser:
     @staticmethod
-    def parse_srt(filepath: str, language: Optional[str] = None) -> SubtitleFile:
+    def parse_srt(filepath: str, language: Optional[str] = None, fps: float = 24.0) -> SubtitleFile:
         with open(filepath, "r", encoding="utf-8-sig") as f:
             content = f.read()
 
@@ -32,6 +32,14 @@ class SubtitleParser:
                 entry_index = len(entries) + 1
 
             if idx >= len(lines):
+                prev_end = entries[-1].end_time if entries else 0
+                entry = SubtitleEntry(
+                    index=entry_index,
+                    start_time=prev_end,
+                    end_time=prev_end + 1000,
+                    text_lines=[],
+                )
+                entries.append(entry)
                 continue
 
             time_line = lines[idx].strip()
@@ -41,6 +49,14 @@ class SubtitleParser:
                 time_line,
             )
             if not time_match:
+                prev_end = entries[-1].end_time if entries else 0
+                entry = SubtitleEntry(
+                    index=entry_index,
+                    start_time=prev_end,
+                    end_time=prev_end + 1000,
+                    text_lines=[l.rstrip() for l in lines[idx:] if l.strip()],
+                )
+                entries.append(entry)
                 continue
 
             start_ms = parse_timecode(time_match.group(1))
@@ -48,8 +64,7 @@ class SubtitleParser:
             if start_ms is None or end_ms is None:
                 continue
 
-            text_lines = [line.rstrip() for line in lines[idx:] if line.strip() or True]
-            text_lines = [line for line in text_lines if line.strip() != ""]
+            text_lines = [line.rstrip() for line in lines[idx:]]
 
             entry = SubtitleEntry(
                 index=entry_index,
@@ -63,13 +78,13 @@ class SubtitleParser:
             all_text = "\n".join(e.full_text for e in entries)
             language = detect_language(all_text)
 
-        return SubtitleFile(filepath=filepath, language=language, entries=entries)
+        return SubtitleFile(filepath=filepath, language=language, fps=fps, entries=entries)
 
     @staticmethod
-    def parse(filepath: str, language: Optional[str] = None) -> Optional[SubtitleFile]:
+    def parse(filepath: str, language: Optional[str] = None, fps: float = 24.0) -> Optional[SubtitleFile]:
         ext = os.path.splitext(filepath)[1].lower()
         if ext == ".srt":
-            return SubtitleParser.parse_srt(filepath, language)
+            return SubtitleParser.parse_srt(filepath, language, fps)
         return None
 
     @staticmethod

@@ -1,0 +1,118 @@
+{
+  "language": null,
+  "fps": 24.0,
+  "output_dir": null,
+  "max_line_length": {
+    "zh": 20,
+    "en": 42
+  },
+  "reading_speed": {
+    "zh": 8,
+    "en": 15
+  },
+  "min_duration_per_line": {
+    "zh": 600,
+    "en": 500
+  },
+  "punctuation_end": [
+    "。",
+    "！",
+    "？",
+    ".",
+    "!",
+    "?",
+    "…",
+    "...",
+    "」",
+    "”",
+    "』"
+  ],
+  "terms": {
+    "zh": {
+      "人工智能": [
+        "AI",
+        "A.I.",
+        "人工智慧"
+      ],
+      "机器学习": [
+        "ML",
+        "Machine Learning"
+      ],
+      "深度学习": [
+        "Deep Learning",
+        "深度學習"
+      ],
+      "神经网络": [
+        "Neural Network",
+        "NN",
+        "類神經網路"
+      ],
+      "算法": [
+        "Algorithm",
+        "演算法"
+      ],
+      "数据": [
+        "資料"
+      ],
+      "模型": [
+        "Model"
+      ],
+      "训练": [
+        "Training",
+        "訓練"
+      ],
+      "推理": [
+        "Inference",
+        "推論"
+      ],
+      "计算机": [
+        "电脑",
+        "Computer"
+      ],
+      "软件": [
+        "軟體",
+        "Software"
+      ],
+      "硬件": [
+        "硬體",
+        "Hardware"
+      ],
+      "用户": [
+        "使用者",
+        "User"
+      ],
+      "界面": [
+        "介面",
+        "Interface",
+        "UI"
+      ],
+      "应用": [
+        "應用",
+        "Application",
+        "App"
+      ],
+      "程序": [
+        "程式",
+        "Program"
+      ],
+      "代码": [
+        "程式碼",
+        "Code"
+      ],
+      "数据库": [
+        "資料庫",
+        "Database",
+        "DB"
+      ],
+      "服务器": [
+        "伺服器",
+        "Server"
+      ],
+      "客户端": [
+        "客戶端",
+        "Client"
+      ]
+    },
+    "en": {}
+  }
+}
